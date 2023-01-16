@@ -1,0 +1,48 @@
+#!/bin/sh
+
+SIGNAL_CLI_CONFIG_PATH=$(pwd)/.signal-cli
+
+logError() {
+    echo "[ERROR] $1"
+    exit 1
+}
+
+startsWith() { case $2 in "$1"*) true ;; *) false ;; esac }
+
+validateNumber() {
+    if [ -z "$1" ]; then
+        logError "Missing number, pass it as 2nd argument, e.g. \"./signalbot dev +4512345678\""
+    fi
+
+    if ! startsWith + "$1"; then
+        logError "Number should start with a \"+\" sign, e.g. +4512345678"
+    fi
+}
+
+case $1 in
+build)
+    docker build -t signalbot -f docker/Dockerfile .
+    ;;
+build-arm64)
+    docker build -t signalbot --build-arg ARCH=arm64 -f docker/Dockerfile .
+    ;;
+daemon)
+    NUMBER=$2
+    validateNumber $NUMBER
+    shift
+    docker run -it -v $SIGNAL_CLI_CONFIG_PATH:/root/.local/share/signal-cli -v $(pwd)/src:/root/src --env-file .env signalbot ./daemon.sh "$@"
+    ;;
+dev)
+    NUMBER=$2
+    validateNumber $NUMBER
+    docker run -it -v $SIGNAL_CLI_CONFIG_PATH:/root/.local/share/signal-cli -v $(pwd)/src:/root/src --env-file .env signalbot ./daemon.sh $NUMBER npx nodemon --exec python3 src/main.py
+    ;;
+prod)
+    NUMBER=$2
+    validateNumber $NUMBER
+    docker run -itd -v $SIGNAL_CLI_CONFIG_PATH:/root/.local/share/signal-cli -v $(pwd)/src:/root/src --name signalbot-prod --env-file .env signalbot ./daemon.sh $NUMBER python3 src/main.py
+    ;;
+*)
+    logError "Invalid command: $1"
+    ;;
+esac
