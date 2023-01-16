@@ -21,12 +21,16 @@ def on_incoming_email(signal, msg):
     sender = msg.from_
     cc = ', '.join(msg.cc)
     bcc = ', '.join(msg.bcc)
-    date = datetime.datetime.strptime(
-        msg.date_str, '%a, %d %b %Y %H:%M:%S %z')
-    # add one hour to turn it into GMT+1
-    date = date + datetime.timedelta(hours=1)
-
-    date = date.strftime('%d %b %H:%M')
+    date = ''
+    try:
+        date = datetime.datetime.strptime(
+            msg.date_str, '%a, %d %b %Y %H:%M:%S %z')
+        # add one hour to turn it into GMT+1
+        date = date + datetime.timedelta(hours=1)
+        date = date.strftime('%d %b %H:%M')
+    except:
+        print(f'BOT: Failed to convert email date "{msg.date_str}"')
+        date = msg.date_str
 
     signalMsg = [
         f'Data: {date}\n',
@@ -39,7 +43,7 @@ def on_incoming_email(signal, msg):
     ]
 
     signal.sendGroupMessage(''.join(signalMsg), [], signalGroupId)
-    print(f"BOT: Forwarded message (sent at {date}) to Signal")
+    print(f"BOT: Message forwarded to Signal (sent at {date})")
 
 
 def start_emails_fetching(signal, on_incoming_email_closure):
@@ -48,6 +52,8 @@ def start_emails_fetching(signal, on_incoming_email_closure):
     username = os.environ['IMAP_USER']
     password = os.environ['IMAP_PASSWORD']
     done = False
+
+    print(f"BOT: Start emails fetching for {username}...")
 
     while not done:
         connection_start_time = time.monotonic()
